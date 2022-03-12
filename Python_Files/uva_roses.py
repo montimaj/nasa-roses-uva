@@ -25,7 +25,7 @@
 # --end-year 2021 `
 # --data-list All `
 # --target-res 1000 `
-# --gdal-path C:/OSGeo4W64/bin/
+# --gdal-path C:/OSGeo4W64/
 
 # ------------------------------------------------- Main code begins --------------------------------------------------
 

@@ -5,8 +5,9 @@
 import pandas as pd
 import geopandas as gpd
 import ee
-import requests
 import numpy as np
+import os
+import urllib.request
 from .sysops import makedirs, make_proper_dir_name
 from .rasterops import read_raster_as_arr
 from .rasterops import reproject_rasters
@@ -21,6 +22,7 @@ def get_gee_dict(get_key_list=False):
     """
 
     gee_data_dict = {
+        'SMOS_SMAP': ['NASA_USDA/HSL/soil_moisture', 'NASA_USDA/HSL/SMAP10KM_soil_moisture'],
         'LANDSAT_NDWI': ['LANDSAT/LE07/C01/T1_8DAY_NDWI', 'LANDSAT/LC08/C01/T1_8DAY_NDWI'],
         'LANDSAT_NDVI': ['LANDSAT/LE07/C01/T1_8DAY_NDVI', 'LANDSAT/LC08/C01/T1_8DAY_NDVI'],
         'GPM': 'NASA/GPM_L3/IMERG_MONTHLY_V06',
@@ -53,7 +55,6 @@ def get_gee_dict(get_key_list=False):
         'FLDAS_STORM_RO': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
         'FLDAS_BF_GW_RO': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
         'FLDAS_SM': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
-        'SMOS_SMAP': ['NASA_USDA/HSL/soil_moisture', 'NASA_USDA/HSL/SMAP10KM_soil_moisture']
     }
     gee_band_dict = {
         'SMOS_SMAP': ['ssm', 'ssm'],
@@ -148,15 +149,14 @@ def save_gee_data(gee_data, gee_scale, gee_aoi, data_name, month, year, output_d
         'scale': gee_scale,
         'crs': 'EPSG:4326',
         'region': gee_aoi,
-        format: 'GEO_TIFF'
+        'format': 'GEO_TIFF'
     })
     month_str = str(month)
     if month < 10:
         month_str = '0' + month_str
     local_file_name = output_dir + '{}_{}{}.tif'.format(data_name, month_str, year)
     print('Dowloading', local_file_name, '...')
-    r = requests.get(gee_url, allow_redirects=True)
-    open(local_file_name, 'wb').write(r.content)
+    urllib.request.urlretrieve(gee_url, local_file_name)
 
 
 def download_gee_data(year_list, start_month, end_month, outdir, data_extent, data='MODIS_ET', gee_scale=1000):
@@ -195,35 +195,38 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
         band_name = gee_band_dict[data]
         band_scale = gee_scale_dict[data]
         for month in range(start_month, end_month + 1):
-            start_date = ee.Date.fromYMD(year, month, 1)
-            if month == 12:
-                end_date = ee.Date.fromYMD(year + 1, 1, 1)
-            else:
-                end_date = ee.Date.fromYMD(year, month + 1, 1)
-            if data in ['MODIS_ET', 'FAO_ACTUAL_ET', 'FAO_EVAPORATION']:
-                gee_data = data_collection.select(band_name).filterDate(start_date, end_date).sum()
-            elif data in multi_collection_data_list:
-                year_check, month_check = multi_collection_dict[data]
-                if year >= year_check and month >= month_check:
-                    data_collection = ee.ImageCollection(gee_data_dict[data][1])
-                    band_name = gee_band_dict[data][1]
-                    band_scale = gee_scale_dict[data][1]
+            try:
+                start_date = ee.Date.fromYMD(year, month, 1)
+                if month == 12:
+                    end_date = ee.Date.fromYMD(year + 1, 1, 1)
                 else:
-                    data_collection = ee.ImageCollection(gee_data_dict[data][0])
-                    band_name = gee_band_dict[data][0]
-                    band_scale = gee_scale_dict[data][0]
-                gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
-            elif data in ['MODIS_Day_LST', 'MODIS_Night_LST']:
-                gee_data = data_collection.select(band_name).filterDate(start_date, end_date).median()
-            else:
-                gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
-            if band_scale != 1:
-                gee_data = gee_data.multiply(band_scale)
-            save_gee_data(gee_data, gee_scale, gee_aoi, data, month, year, outdir)
+                    end_date = ee.Date.fromYMD(year, month + 1, 1)
+                if data in ['MODIS_ET', 'FAO_ACTUAL_ET', 'FAO_EVAPORATION', 'GPM']:
+                    gee_data = data_collection.select(band_name).filterDate(start_date, end_date).sum()
+                elif data in multi_collection_data_list:
+                    year_check, month_check = multi_collection_dict[data]
+                    if year >= year_check and month >= month_check:
+                        data_collection = ee.ImageCollection(gee_data_dict[data][1])
+                        band_name = gee_band_dict[data][1]
+                        band_scale = gee_scale_dict[data][1]
+                    else:
+                        data_collection = ee.ImageCollection(gee_data_dict[data][0])
+                        band_name = gee_band_dict[data][0]
+                        band_scale = gee_scale_dict[data][0]
+                    gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
+                elif data in ['MODIS_Day_LST', 'MODIS_Night_LST']:
+                    gee_data = data_collection.select(band_name).filterDate(start_date, end_date).median()
+                else:
+                    gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
+                if band_scale != 1:
+                    gee_data = gee_data.multiply(band_scale)
+                save_gee_data(gee_data, gee_scale, gee_aoi, data, month, year, outdir)
+            except ee.ee_exception.EEException:
+                print('{} data not available for {}/{}'.format(data, month, year))
 
 
 def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_start_year=2012, data_end_year=2021,
-                 target_res=1000, gdal_path='/usr/bin', already_prepared=False):
+                 target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False):
     """
     Prepare data for a region of interest
     :param input_shp: Input shapefile of the country containing administrative boundaries
@@ -234,6 +237,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     :param data_end_year: End year
     :param target_res: Target resolution for rasters in metres
     :param gdal_path: Path to gdal system path
+    :param remove_na: Set True to remove NA values.
     :param already_prepared: Set True if subset csv already exists
     :return: Pandas data frame containing all the pixelwise data associated with each administrative boundary present
     in input_shp
@@ -272,6 +276,8 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         )
         output_df = pd.DataFrame()
         output_dict = {}
+        admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
+        print('Creating CSV...')
         for data in data_list:
             if data != 'NASADEM':
                 for year in year_list:
@@ -280,11 +286,17 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
                         if month < 10:
                             month_str = '0' + month_str
                         raster_file = reproj_dir + '{}_{}{}.tif'.format(data, month_str, year)
-                        raster_arr = read_raster_as_arr(raster_file, get_file=False)
-                        if data == 'DMSP_VIIRS' and year >= 2014:
-                            raster_arr = np.ceil(6.5 + 57.4 * (1 / (1 + np.exp(1.9 * (np.log(raster_arr + 1) - 10.8)))))
+                        if os.path.exists(raster_file):
+                            raster_arr = read_raster_as_arr(raster_file, get_file=False)
+                            if data == 'DMSP_VIIRS' and year >= 2014:
+                                raster_arr = np.ceil(
+                                    6.5 + 57.4 * (1 / (1 + np.exp(1.9 * (np.log(raster_arr + 1) - 10.8))))
+                                )
+                        else:
+                            raster_arr = np.full_like(admin_raster_arr, fill_value=np.nan)
                         raster_val_list = raster_arr.ravel().tolist()
                         output_dict[data] = raster_val_list
+                        raster_val_list = raster_arr.ravel().tolist()
                         output_dict['YEAR'] = [year] * len(raster_val_list)
                         output_dict['MONTH'] = [month] * len(raster_val_list)
                         if output_df.empty:
@@ -298,11 +310,13 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
             raster_file = reproj_dir + 'NASADEM_012012.tif'
             raster_arr = read_raster_as_arr(raster_file, get_file=False)
             output_df['NASADEM'] = raster_arr.ravel().tolist() * num_periods
-        admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
         output_df['idx'] = admin_raster_arr.ravel().tolist() * num_periods
-        output_df = output_df[~output_df.isin([np.nan, np.inf, -np.inf]).any(1)]
+        nan_values = [np.inf, -np.inf]
+        if remove_na:
+            nan_values.append(np.nan)
+        output_df = output_df[~output_df.isin(nan_values).any(1)]
         input_gdf = input_gdf.drop(columns=['geometry'])
-        output_df = output_df.merge(input_gdf, on='idx')
+        output_df = output_df.merge(input_gdf, on='idx', how='inner')
         output_df = reindex_df(output_df, ordering=True)
         output_df.to_csv(output_csv, index=False)
     else:
