@@ -21,7 +21,6 @@ def get_gee_dict(get_key_list=False):
     """
 
     gee_data_dict = {
-        'SMOS_SMAP': ['NASA_USDA/HSL/soil_moisture', 'NASA_USDA/HSL/SMAP10KM_soil_moisture'],
         'LANDSAT_NDWI': ['LANDSAT/LE07/C01/T1_8DAY_NDWI', 'LANDSAT/LC08/C01/T1_8DAY_NDWI'],
         'LANDSAT_NDVI': ['LANDSAT/LE07/C01/T1_8DAY_NDVI', 'LANDSAT/LC08/C01/T1_8DAY_NDVI'],
         'GPM': 'NASA/GPM_L3/IMERG_MONTHLY_V06',
@@ -53,7 +52,8 @@ def get_gee_dict(get_key_list=False):
         'NASA_LANCE_FIRMS': 'FIRMS',
         'FLDAS_STORM_RO': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
         'FLDAS_BF_GW_RO': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
-        'FLDAS_SM': 'NASA/FLDAS/NOAH01/C/GL/M/V001'
+        'FLDAS_SM': 'NASA/FLDAS/NOAH01/C/GL/M/V001',
+        'SMOS_SMAP': ['NASA_USDA/HSL/soil_moisture', 'NASA_USDA/HSL/SMAP10KM_soil_moisture']
     }
     gee_band_dict = {
         'SMOS_SMAP': ['ssm', 'ssm'],
@@ -217,7 +217,8 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
                 gee_data = data_collection.select(band_name).filterDate(start_date, end_date).median()
             else:
                 gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
-            gee_data = gee_data.multiply(band_scale)
+            if band_scale != 1:
+                gee_data = gee_data.multiply(band_scale)
             save_gee_data(gee_data, gee_scale, gee_aoi, data, month, year, outdir)
 
 
@@ -272,9 +273,9 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         output_df = pd.DataFrame()
         output_dict = {}
         for data in data_list:
-            for year in year_list:
-                for month in range(1, 13):
-                    if data != 'NASADEM':
+            if data != 'NASADEM':
+                for year in year_list:
+                    for month in range(1, 13):
                         month_str = str(month)
                         if month < 10:
                             month_str = '0' + month_str
