@@ -31,7 +31,6 @@
 
 
 import argparse
-
 from uvalibs.dataops import prepare_data
 from uvalibs.sysops import boolean_string
 
@@ -69,14 +68,15 @@ def run_map_ml(args):
         already_prepared=args.load_files,
         target_res=args.target_res,
         gdal_path=args.gdal_path,
-        remove_na=args.remove_na
+        remove_na=args.remove_na,
+        skip_download=args.skip_download
     )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Flags to run HydroMAP_ML')
     parser.add_argument('--input-shp', type=str, required=True, help='Input shapefile')
-    parser.add_argument('--load-files', type=boolean_string, default=True,
+    parser.add_argument('--load-files', type=boolean_string, default=False,
                         help='Set True to load existing CSV')
     parser.add_argument('--skip-download', type=boolean_string, default=True,
                         help='Set True to load existing GEE data')
