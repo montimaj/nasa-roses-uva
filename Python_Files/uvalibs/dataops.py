@@ -282,7 +282,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
                         raster_file = reproj_dir + '{}_{}{}.tif'.format(data, month_str, year)
                         raster_arr = read_raster_as_arr(raster_file, get_file=False)
                         if data == 'DMSP_VIIRS' and year >= 2014:
-                            raster_arr = np.ceil(6.5 + 57.4 * (1 / (1 + np.exp(1.9 * (np.log(raster_arr) - 10.8)))))
+                            raster_arr = np.ceil(6.5 + 57.4 * (1 / (1 + np.exp(1.9 * (np.log(raster_arr + 1) - 10.8)))))
                         raster_val_list = raster_arr.ravel().tolist()
                         output_dict[data] = raster_val_list
                         output_dict['YEAR'] = [year] * len(raster_val_list)
