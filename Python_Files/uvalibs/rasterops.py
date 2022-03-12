@@ -153,7 +153,7 @@ def reproject_rasters(input_raster_dir, ref_raster, outdir, pattern='*.tif', gda
 
 def reproject_raster_gdal_syscall(input_raster_file, outfile_path, resampling_factor=1, resampling_func='near',
                                   downsampling=True, from_raster=None, keep_original=False, gdal_path='/usr/bin/',
-                                  verbose=True, dst_xres=None, dst_yres=None):
+                                  verbose=False, dst_xres=None, dst_yres=None):
     """
     Reproject raster using GDAL system call.
     :param input_raster_file: Input raster file

@@ -44,7 +44,8 @@ def run_map_ml(args):
     Keys: Description
     ___________________________________________________________________________________________________________________
     input_shp: Input shapefile
-    load_files: Set True to load existing data sets
+    load_files: Set True to load existing CSV
+    skip_download: Set True to load existing GEE data
     output_dir: Output directory
     start_year: Start year for downloading data sets
     end_year: End year for downloading data sets
@@ -76,7 +77,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Flags to run HydroMAP_ML')
     parser.add_argument('--input-shp', type=str, required=True, help='Input shapefile')
     parser.add_argument('--load-files', type=boolean_string, default=True,
-                        help='Set True to load existing data sets')
+                        help='Set True to load existing CSV')
+    parser.add_argument('--skip-download', type=boolean_string, default=True,
+                        help='Set True to load existing GEE data')
     parser.add_argument('--output-dir', type=str, required=True, help='Output directory')
     parser.add_argument('--start-year', type=int, required=True, help='Start year for downloading data sets')
     parser.add_argument('--end-year', type=int, required=True, help='End year for downloading data sets')

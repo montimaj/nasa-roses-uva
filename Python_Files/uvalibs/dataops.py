@@ -46,9 +46,6 @@ def get_gee_dict(get_key_list=False):
         'MODIS_AEROSOL': 'MODIS/061/MOD08_M3',
         'MODIS_CIRRUS': 'MODIS/061/MOD08_M3',
         'MODIS_WV': 'MODIS/006/MCD19A2_GRANULES',
-        'SW_Recurrence': 'JRC/GSW1_3/GlobalSurfaceWater',
-        'SW_Occurence': 'JRC/GSW1_3/GlobalSurfaceWater',
-        'SW_Seasonality': 'JRC/GSW1_3/GlobalSurfaceWater',
         'FAO_ACTUAL_ET': 'FAO/WAPOR/2/L1_AETI_D',
         'FAO_EVAPORATION': 'FAO/WAPOR/2/L1_E_D',
         'NASA_LANCE_FIRMS': 'FIRMS',
@@ -81,9 +78,6 @@ def get_gee_dict(get_key_list=False):
         'MODIS_AEROSOL': 'Aerosol_Optical_Depth_Land_Ocean_Mean_Mean',
         'MODIS_CIRRUS': 'Cirrus_Fraction_SWIR_FMean',
         'MODIS_WV': 'Column_WV',
-        'SW_Recurrence': 'recurrence',
-        'SW_Occurence': 'occurence',
-        'SW_Seasonality': 'seasonality',
         'FAO_ACTUAL_ET': 'L1_AETI_D',
         'FAO_EVAPORATION': 'L1_E_D',
         'NASA_LANCE_FIRMS': 'T21',
@@ -117,9 +111,6 @@ def get_gee_dict(get_key_list=False):
         'MODIS_AEROSOL': 0.001,
         'MODIS_CIRRUS': 0.0001,
         'MODIS_WV': 0.001,
-        'SW_Recurrence': 1,
-        'SW_Occurence': 1,
-        'SW_Seasonality': 1,
         'FAO_ACTUAL_ET': 0.1,
         'FAO_EVAPORATION': 0.1,
         'NASA_LANCE_FIRMS': 1,
@@ -186,7 +177,7 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
     if data in multi_collection_data_list:
         data_collection = ee.ImageCollection(gee_data_dict[data][0])
     elif data == 'NASADEM':
-        data_collection = ee.Image(gee_data_dict[data])
+        data_collection = ee.Image(gee_data_dict[data]).select(gee_band_dict[data])
         save_gee_data(data_collection, gee_scale, gee_aoi, data, 1, year_list[0], outdir)
         return
     else:
@@ -218,7 +209,7 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
                     gee_data = data_collection.select(band_name).filterDate(start_date, end_date).median()
                 else:
                     gee_data = data_collection.select(band_name).filterDate(start_date, end_date).mean()
-                if band_scale != 1:
+                if band_scale < 1:
                     gee_data = gee_data.multiply(band_scale)
                 save_gee_data(gee_data, gee_scale, gee_aoi, data, month, year, outdir)
             except ee.ee_exception.EEException:
@@ -226,7 +217,7 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
 
 
 def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_start_year=2012, data_end_year=2021,
-                 target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False):
+                 target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False, skip_download=False):
     """
     Prepare data for a region of interest
     :param input_shp: Input shapefile of the country containing administrative boundaries
@@ -239,6 +230,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     :param gdal_path: Path to gdal system path
     :param remove_na: Set True to remove NA values.
     :param already_prepared: Set True if subset csv already exists
+    :param skip_download: Set True to load existing GEE data
     :return: Pandas data frame containing all the pixelwise data associated with each administrative boundary present
     in input_shp
     """
@@ -266,14 +258,16 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         makedirs([gee_file_dir, reproj_dir])
         if 'All' in data_list:
             data_list = get_gee_dict(get_key_list=True)
-        for data in data_list:
-            download_gee_data(year_list, 1, 12, gee_file_dir, data_extent, data, target_res)
-        reproject_rasters(
-            gee_file_dir,
-            ref_raster=admin_raster,
-            outdir=reproj_dir,
-            gdal_path=gdal_path
-        )
+        if not skip_download:
+            for data in data_list:
+                download_gee_data(year_list, 1, 12, gee_file_dir, data_extent, data, target_res)
+                reproject_rasters(
+                    gee_file_dir,
+                    ref_raster=admin_raster,
+                    outdir=reproj_dir,
+                    gdal_path=gdal_path,
+                    pattern='{}*.tif'.format(data)
+                )
         output_df = pd.DataFrame()
         output_dict = {}
         admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
