@@ -54,6 +54,7 @@ def run_map_ml(args):
     'SWB_RINF', 'SWB_RO', 'SWB_SS', 'SWB_MRD', 'SWB_SSM', 'SWB_AWC'
     target_res: Target resolution (m) for rasters
     gdal_path: GDAL path
+    remove_na: Set True to remove NA values from the final CSV.
     ___________________________________________________________________________________________________________________
     :return: None
     """
@@ -66,7 +67,8 @@ def run_map_ml(args):
         data_end_year=args.end_year,
         already_prepared=args.load_files,
         target_res=args.target_res,
-        gdal_path=args.gdal_path
+        gdal_path=args.gdal_path,
+        remove_na=args.remove_na
     )
 
 
@@ -83,5 +85,7 @@ if __name__ == '__main__':
                              " 'SMOS_SMAP', 'MODIS_NDWI', etc. Set All to use all data sets defined in this project")
     parser.add_argument('--target-res', type=int, default=1000, help='Target resolution (m) for rasters')
     parser.add_argument('--gdal-path', type=str, help='GDAL path')
+    parser.add_argument('--remove-na', type=boolean_string, default=False,
+                        help='Set True to remove NA values from the final CSV')
     map_args = parser.parse_args()
     run_map_ml(map_args)
