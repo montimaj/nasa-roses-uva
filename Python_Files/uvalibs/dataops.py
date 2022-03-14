@@ -264,22 +264,16 @@ def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, rem
     month_str = raster_file[sep_pos + 1: sep_pos + 3]
     year = int(raster_file[sep_pos + 3: sep_pos + 7])
     month = int(month_str)
+    raster_arr = raster_arr.ravel()
     if data not in static_rasters:
-        if data == 'DMSP_VIIRS' and year >= 2014:
-            raster_arr = dask_array.floor(
-                6.5 + 57.4 * (1 / (1 + dask_array.exp(1.9 * (dask_array.log(raster_arr + 1) - 10.8))))
-            )
-        else:
-            raster_arr = dask_array.full_like(admin_raster_arr, fill_value=np.nan)
-        raster_vals = raster_arr.ravel()
-        raster_df[data] = raster_vals
-        raster_df['YEAR'] = dask_array.array([year] * raster_vals.size)
-        raster_df['MONTH'] = dask_array.array([month] * raster_vals.size)
+        raster_df[data] = raster_arr
+        raster_df['YEAR'] = dask_array.array([year] * raster_arr.size)
+        raster_df['MONTH'] = dask_array.array([month] * raster_arr.size)
         raster_df['idx'] = admin_raster_arr.ravel()
     else:
         num_periods = (year_list[-1] - year_list[0] + 1) * 12
-        raster_df[data] = dask_array.from_array(raster_arr.ravel().tolist() * num_periods)
-        raster_df['idx'] = dask_array.from_array(admin_raster_arr.ravel().tolist() * num_periods)
+        raster_df[data] = dask_array.from_array(raster_arr.repeat(num_periods))
+        raster_df['idx'] = dask_array.from_array(admin_raster_arr.ravel().repeat(num_periods))
     nan_values = [np.inf, -np.inf]
     if remove_na:
         nan_values.append(np.nan)
