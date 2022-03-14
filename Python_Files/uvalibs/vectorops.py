@@ -5,8 +5,8 @@ import geopandas as gpd
 import rasterio as rio
 import os
 import pandas as pd
-import gdal
-from .rasterops import get_nodata, get_raster_extent, read_raster_as_arr
+from osgeo import gdal
+from .rasterops import get_raster_extent, read_raster_as_arr
 
 
 def reproject_vector(input_vector_file, outfile_path, ref_file, crs='epsg:4326', crs_from_file=True, raster=True):

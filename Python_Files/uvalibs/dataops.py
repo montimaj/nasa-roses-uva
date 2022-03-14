@@ -8,6 +8,12 @@ import ee
 import numpy as np
 import os
 import urllib.request
+import dask.dataframe as dask_df
+import dask.array as dask_array
+from glob import glob
+from dask import delayed
+from dask_jobqueue import SLURMCluster
+from dask.distributed import Client, LocalCluster
 from .sysops import makedirs, make_proper_dir_name
 from .rasterops import read_raster_as_arr
 from .rasterops import reproject_rasters
@@ -216,14 +222,65 @@ def download_gee_data(year_list, start_month, end_month, outdir, data_extent, da
                 print('{} data not available for {}/{}'.format(data, month, year))
 
 
+def get_dask_cluster(use_hpc):
+    """
+    Get Dask cluster object
+    :param use_hpc: Set False to use local cluster
+    :return: Dask cluster
+    """
+
+    if use_hpc:
+        cluster = SLURMCluster(
+            cores=32,
+            processes=1,
+            memory="20G",
+            walltime="01:00:00",
+            interface='ib0',
+            env_extra=['#SBATCH --out=Foundry-Dask-%j.out']
+        )
+    else:
+        cluster = LocalCluster()
+    return cluster
+
+
+def generate_raster_df(raster_file, admin_raster_arr, exclude_rasters=('NASADEM',)):
+    """
+    Generate CSV file from a raster
+    :param raster_file: Input raster file
+    :param admin_raster_arr: Administrative boundary raster array
+    :param exclude_rasters: Exclude these rasters from the data frame
+    :return: Pandas dataframe of the raster
+    """
+
+    raster_arr = dask_array.from_array(read_raster_as_arr(raster_file, get_file=False))
+    sep_pos = raster_file.rfind('_')
+    data = raster_file[raster_file.rfind(os.sep) + 1: sep_pos]
+    raster_df = pd.DataFrame()
+    if data not in exclude_rasters:
+        month = int(raster_file[sep_pos + 1: sep_pos + 3])
+        year = int(raster_file[sep_pos + 3: sep_pos + 7])
+        if data == 'DMSP_VIIRS' and year >= 2014:
+            raster_arr = dask_array.ceil(
+                6.5 + 57.4 * (1 / (1 + dask_array.exp(1.9 * (dask_array.log(raster_arr + 1) - 10.8))))
+            )
+        else:
+            raster_arr = dask_array.full_like(admin_raster_arr, fill_value=np.nan)
+        raster_vals = raster_arr.flatten()
+        raster_df[data] = raster_vals
+        raster_df['YEAR'] = dask_array.array([year] * raster_vals.size)
+        raster_df['MONTH'] = dask_array.array([month] * raster_vals.size)
+    return raster_df
+
+
 def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_start_year=2012, data_end_year=2021,
-                 target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False, skip_download=False):
+                 target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False, skip_download=False,
+                 use_hpc=True):
     """
     Prepare data for a region of interest
     :param input_shp: Input shapefile of the country containing administrative boundaries
     :param output_dir: Output directory to store files
-    :param data_list: List of data sets to download, valid names include 'SM_IDAHO', 'MOD16', 'SMOS_SMAP',
-    'DROUGHT', 'PRISM', 'TMIN', 'TMAX', 'WS', 'RO', 'NDWI', 'SPH', 'DEF', 'VPD', 'VPD_SMAP', 'MODIS'.
+    :param data_list: List of data sets to use/download. Valid names include 'GPM', 'MODIS_ET', 'SMOS_SMAP',
+    'MODIS_NDWI', etc. Set All to use all data sets defined in this project
     :param data_start_year: Start year
     :param data_end_year: End year
     :param target_res: Target resolution for rasters in metres
@@ -231,6 +288,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     :param remove_na: Set True to remove NA values.
     :param already_prepared: Set True if subset csv already exists
     :param skip_download: Set True to load existing GEE data
+    :param use_hpc: Set False to use local machine
     :return: Pandas data frame containing all the pixelwise data associated with each administrative boundary present
     in input_shp
     """
@@ -268,37 +326,27 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
                     gdal_path=gdal_path,
                     pattern='{}*.tif'.format(data)
                 )
-        output_df = pd.DataFrame()
-        output_dict = {}
-        admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
         print('Creating CSV...')
-        for data in data_list:
-            if data != 'NASADEM':
-                for year in year_list:
-                    for month in range(1, 13):
-                        month_str = str(month)
-                        if month < 10:
-                            month_str = '0' + month_str
-                        raster_file = reproj_dir + '{}_{}{}.tif'.format(data, month_str, year)
-                        if os.path.exists(raster_file):
-                            raster_arr = read_raster_as_arr(raster_file, get_file=False)
-                            if data == 'DMSP_VIIRS' and year >= 2014:
-                                raster_arr = np.ceil(
-                                    6.5 + 57.4 * (1 / (1 + np.exp(1.9 * (np.log(raster_arr + 1) - 10.8))))
-                                )
-                        else:
-                            raster_arr = np.full_like(admin_raster_arr, fill_value=np.nan)
-                        raster_val_list = raster_arr.ravel().tolist()
-                        output_dict[data] = raster_val_list
-                        raster_val_list = raster_arr.ravel().tolist()
-                        output_dict['YEAR'] = [year] * len(raster_val_list)
-                        output_dict['MONTH'] = [month] * len(raster_val_list)
-                        if output_df.empty:
-                            output_df = pd.DataFrame(data=output_dict)
-                        else:
-                            output_df = output_df.append(
-                                pd.DataFrame(data=output_dict)
-                            )
+        gee_file_list = sorted(glob(reproj_dir + '*.tif') + [admin_raster])
+        dask_cluster = get_dask_cluster(use_hpc)
+        if use_hpc:
+            dask_cluster.adapt(
+                minimum=10, maximum=50,
+                minimum_jobs=10, maximum_jobs=50,
+                minimum_memory='16G', maximum_memory='20G'
+            )
+        else:
+            dask_cluster.scale(len(dask_cluster.workers))
+        dask_client = Client(dask_cluster)
+        print('Waiting for dask workers...')
+        dask_client.wait_for_workers(1)
+        admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
+        raster_dfs = [
+            delayed(generate_raster_df)(gee_file, dask_array.from_array(admin_raster_arr))
+            for gee_file in gee_file_list
+        ]
+        output_df = dask_df.from_delayed(raster_dfs, verify_meta=False)
+        output_df.compute()
         num_periods = (year_list[-1] - year_list[0] + 1) * 12
         if 'NASADEM' in data_list:
             raster_file = reproj_dir + 'NASADEM_012012.tif'
@@ -310,9 +358,11 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
             nan_values.append(np.nan)
         output_df = output_df[~output_df.isin(nan_values).any(1)]
         input_gdf = input_gdf.drop(columns=['geometry'])
+        print('Merging admin shapefile and CSV...')
         output_df = output_df.merge(input_gdf, on='idx', how='inner')
         output_df = reindex_df(output_df, ordering=True)
-        output_df.to_csv(output_csv, index=False)
+        output_df.to_csv(output_csv, single_file=True)
+        dask_client.close()
     else:
         output_df = pd.read_csv(output_csv)
     return output_df

@@ -14,7 +14,10 @@
 # --end-year 2021 \
 # --data-list MOD16 SM_IDAHO SMOS_SMAP RO DEF GPM \
 # --target-res 1000 \
-# --gdal-path /usr/bin/gdal/
+# --gdal-path /usr/bin/gdal/ \
+# --skip-download True \
+# --remove-na False \
+# --use-hpc True
 
 # Execute map_ml.py (change the paths and flags accordingly) on Windows powershell
 # python uva_roses.py `
@@ -25,7 +28,10 @@
 # --end-year 2021 `
 # --data-list All `
 # --target-res 1000 `
-# --gdal-path C:/OSGeo4W64/
+# --gdal-path C:/OSGeo4W64/ `
+# --skip-download True `
+# --remove-na False `
+# --use-hpc True
 
 # ------------------------------------------------- Main code begins --------------------------------------------------
 
@@ -48,13 +54,12 @@ def run_map_ml(args):
     output_dir: Output directory
     start_year: Start year for downloading data sets
     end_year: End year for downloading data sets
-    data_list: List of data sets to use/download. Valid names include 'SSEBop', 'SM_IDAHO', 'MOD16', 'SMOS_SMAP',
-    'DROUGHT', 'PRISM', 'TMIN', 'TMAX', 'WS', 'RO', 'NDWI', 'SPH', 'DEF', 'VPD', 'VPD_SMAP', 'ppt', 'tmax', 'tmin',
-    'tmean', 'CDL', 'EEMETRIC', 'PT-JPL', 'SIMS', 'SWB_HSG', 'SWB_ET', 'SWB_PPT', 'SWB_INT', 'SWB_IRR', 'SWB_INF',
-    'SWB_RINF', 'SWB_RO', 'SWB_SS', 'SWB_MRD', 'SWB_SSM', 'SWB_AWC'
+    data_list: List of data sets to use/download. Valid names include 'GPM', 'MODIS_ET', 'SMOS_SMAP', 'MODIS_NDWI', etc.
+    Set All to use all data sets defined in this project
     target_res: Target resolution (m) for rasters
     gdal_path: GDAL path
-    remove_na: Set True to remove NA values from the final CSV.
+    remove_na: Set True to remove NA values from the final CSV
+    use_hpc: Set False to run on local machine
     ___________________________________________________________________________________________________________________
     :return: None
     """
@@ -69,7 +74,8 @@ def run_map_ml(args):
         target_res=args.target_res,
         gdal_path=args.gdal_path,
         remove_na=args.remove_na,
-        skip_download=args.skip_download
+        skip_download=args.skip_download,
+        use_hpc=args.use_hpc
     )
 
 
@@ -90,5 +96,6 @@ if __name__ == '__main__':
     parser.add_argument('--gdal-path', type=str, help='GDAL path')
     parser.add_argument('--remove-na', type=boolean_string, default=False,
                         help='Set True to remove NA values from the final CSV')
+    parser.add_argument('--use-hpc', type=boolean_string, default=True, help='Set False to run on local machine')
     map_args = parser.parse_args()
     run_map_ml(map_args)

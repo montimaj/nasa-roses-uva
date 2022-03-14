@@ -1,20 +1,22 @@
 #!/bin/sh
 #SBATCH --job-name=nasa-roses-uva
 #SBATCH --ntasks=1
-#SBATCH --time=02:00:00
+#SBATCH --time=01:00:00
 #SBATCH --mail-type=end,fail,requeue
 #SBATCH --mail-user=smxnv@mst.edu
 #SBATCH --export=all
-#SBATCH --mem=100G
-#SBATCH --out=HydroMAP-Foundry-%j.out
+#SBATCH --mem=200G
+#SBATCH --out=Roses-Foundry-%j.out
 
-
- python uva_roses.py \
- --input-shp '../Data/gis shapefiles/nga_admbnda_adm2_osgof_20190417.shp' \
- --load-files True \
- --output-dir ../Outputs/ \
- --start-year 2012 \
- --end-year 2021 \
- --data-list All \
- --target-res 1000 \
- --gdal-path /usr/bin/gdal/
+python uva_roses.py \
+--input-shp '../Data/gis shapefiles/nga_admbnda_adm2_osgof_20190417.shp' \
+--load-files False \
+--output-dir ../Outputs/ \
+--start-year 2012 \
+--end-year 2021 \
+--data-list All \
+--target-res 1000 \
+--gdal-path /home/smxnv/anaconda3/envs/HydroEnv/bin/ \
+--skip-download True \
+--remove-na False \
+--use-hpc True
