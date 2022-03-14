@@ -8,10 +8,10 @@ import ee
 import numpy as np
 import os
 import urllib.request
-import dask.dataframe as dask_df
 import dask.array as dask_array
+from copy import deepcopy
 from glob import glob
-from dask import delayed
+from dask import delayed, compute
 from dask_jobqueue import SLURMCluster
 from dask.distributed import Client, LocalCluster
 from .sysops import makedirs, make_proper_dir_name
@@ -243,33 +243,52 @@ def get_dask_cluster(use_hpc):
     return cluster
 
 
-def generate_raster_df(raster_file, admin_raster_arr, exclude_rasters=('NASADEM',)):
+def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, remove_na=False,
+                       year_list=range(2012, 2013), static_rasters=('NASADEM',)):
     """
     Generate CSV file from a raster
     :param raster_file: Input raster file
     :param admin_raster_arr: Administrative boundary raster array
-    :param exclude_rasters: Exclude these rasters from the data frame
-    :return: Pandas dataframe of the raster
+    :param admin_gdf: Administrative boundary gdf used for merging
+    :param output_dir: Output directory
+    :param remove_na: Set True to remove NaN values
+    :param static_rasters: Process these static rasters separately
+    :param year_list: List of years
+    :return: None
     """
 
     raster_arr = dask_array.from_array(read_raster_as_arr(raster_file, get_file=False))
     sep_pos = raster_file.rfind('_')
-    data = raster_file[raster_file.rfind(os.sep) + 1: sep_pos]
     raster_df = pd.DataFrame()
-    if data not in exclude_rasters:
-        month = int(raster_file[sep_pos + 1: sep_pos + 3])
-        year = int(raster_file[sep_pos + 3: sep_pos + 7])
+    data = raster_file[raster_file.rfind(os.sep) + 1: sep_pos]
+    month_str = raster_file[sep_pos + 1: sep_pos + 3]
+    year = int(raster_file[sep_pos + 3: sep_pos + 7])
+    month = int(month_str)
+    if data not in static_rasters:
         if data == 'DMSP_VIIRS' and year >= 2014:
-            raster_arr = dask_array.ceil(
+            raster_arr = dask_array.floor(
                 6.5 + 57.4 * (1 / (1 + dask_array.exp(1.9 * (dask_array.log(raster_arr + 1) - 10.8))))
             )
         else:
             raster_arr = dask_array.full_like(admin_raster_arr, fill_value=np.nan)
-        raster_vals = raster_arr.flatten()
+        raster_vals = raster_arr.ravel()
         raster_df[data] = raster_vals
         raster_df['YEAR'] = dask_array.array([year] * raster_vals.size)
         raster_df['MONTH'] = dask_array.array([month] * raster_vals.size)
-    return raster_df
+        raster_df['idx'] = admin_raster_arr.ravel()
+    else:
+        num_periods = (year_list[-1] - year_list[0] + 1) * 12
+        raster_df[data] = dask_array.from_array(raster_arr.ravel().tolist() * num_periods)
+        raster_df['idx'] = dask_array.from_array(admin_raster_arr.ravel().tolist() * num_periods)
+    nan_values = [np.inf, -np.inf]
+    if remove_na:
+        nan_values.append(np.nan)
+    raster_df = raster_df[~raster_df.isin(nan_values).any(1)]
+    raster_df = raster_df[~np.isnan(raster_df['idx'])]
+    raster_df = raster_df.merge(admin_gdf, on='idx', how='inner')
+    raster_df = reindex_df(raster_df, ordering=True)
+    raster_csv = output_dir + '{}_{}{}.csv'.format(data, month_str, year)
+    raster_df.to_csv(raster_csv, index=False)
 
 
 def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_start_year=2012, data_end_year=2021,
@@ -289,13 +308,12 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     :param already_prepared: Set True if subset csv already exists
     :param skip_download: Set True to load existing GEE data
     :param use_hpc: Set False to use local machine
-    :return: Pandas data frame containing all the pixelwise data associated with each administrative boundary present
-    in input_shp
+    :return: Name of the directory containing the raster CSVs
     """
 
-    output_csv = output_dir + 'NASA_ROSES_Data.csv'
+    csv_dir = make_proper_dir_name(output_dir + 'Raster_CSVs')
     if not already_prepared:
-        makedirs([make_proper_dir_name(output_dir)])
+        makedirs([make_proper_dir_name(csv_dir)])
         input_gdf = gpd.read_file(input_shp)
         input_gdf['idx'] = input_gdf.index + 1
         modified_input_shp = output_dir + input_shp[input_shp.rfind('/') + 1:]
@@ -340,32 +358,15 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         dask_client = Client(dask_cluster)
         print('Waiting for dask workers...')
         dask_client.wait_for_workers(1)
+        admin_gdf = input_gdf.drop(columns=['geometry'])
         admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
-        raster_dfs = [
-            delayed(generate_raster_df)(gee_file, dask_array.from_array(admin_raster_arr))
+        dask_admin_raster_arr = dask_array.from_array(deepcopy(admin_raster_arr))
+        compute(
+            delayed(generate_raster_df)(gee_file, dask_admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
             for gee_file in gee_file_list
-        ]
-        output_df = dask_df.from_delayed(raster_dfs, verify_meta=False)
-        output_df.compute()
-        num_periods = (year_list[-1] - year_list[0] + 1) * 12
-        if 'NASADEM' in data_list:
-            raster_file = reproj_dir + 'NASADEM_012012.tif'
-            raster_arr = read_raster_as_arr(raster_file, get_file=False)
-            output_df['NASADEM'] = raster_arr.ravel().tolist() * num_periods
-        output_df['idx'] = admin_raster_arr.ravel().tolist() * num_periods
-        nan_values = [np.inf, -np.inf]
-        if remove_na:
-            nan_values.append(np.nan)
-        output_df = output_df[~output_df.isin(nan_values).any(1)]
-        input_gdf = input_gdf.drop(columns=['geometry'])
-        print('Merging admin shapefile and CSV...')
-        output_df = output_df.merge(input_gdf, on='idx', how='inner')
-        output_df = reindex_df(output_df, ordering=True)
-        output_df.to_csv(output_csv, single_file=True)
+        )
         dask_client.close()
-    else:
-        output_df = pd.read_csv(output_csv)
-    return output_df
+    return csv_dir
 
 
 def reindex_df(df, column_names=None, ordering=False):
