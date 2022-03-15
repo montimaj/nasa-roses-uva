@@ -366,9 +366,9 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         dask_client = Client(dask_cluster)
         print('Waiting for dask workers...')
         dask_client.wait_for_workers(1)
+        admin_gdf = input_gdf.drop(columns=['geometry'])
+        admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
         for gee_files in gee_file_chunks:
-            admin_gdf = input_gdf.drop(columns=['geometry'])
-            admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
             compute(
                 delayed(generate_raster_df)(gee_file, admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
                 for gee_file in gee_files
