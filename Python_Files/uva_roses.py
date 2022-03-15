@@ -13,7 +13,7 @@
 # --output-dir ../Outputs/ \
 # --start-year 2012 \
 # --end-year 2021 \
-# --data-list MOD16 SM_IDAHO SMOS_SMAP RO DEF GPM \
+# --data-list MODIS_ET SMOS_SMAP GPM LANDSAT_NDWI \
 # --target-res 1000 \
 # --gdal-path /usr/bin/gdal/ \
 # --skip-download True \
