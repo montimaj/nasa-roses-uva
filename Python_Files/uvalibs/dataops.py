@@ -272,11 +272,11 @@ def generate_raster_df(raster_file, admin_raster_arr, output_dir, remove_na=Fals
         num_periods = (year_list[-1] - year_list[0] + 1) * 12
         raster_df[data] = raster_arr.repeat(num_periods)
         raster_df['idx'] = admin_raster_arr.ravel().repeat(num_periods)
+    raster_df = raster_df[~np.isnan(raster_df['idx'])]
     nan_values = [np.inf, -np.inf]
     if remove_na:
         nan_values.append(np.nan)
     raster_df = raster_df[~raster_df.isin(nan_values).any(1)]
-    raster_df = raster_df[~np.isnan(raster_df['idx'])]
     raster_df = reindex_df(raster_df, ordering=True)
     raster_csv = output_dir + '{}_{}{}.csv'.format(data, month_str, year)
     raster_df.to_csv(raster_csv, index=False)
