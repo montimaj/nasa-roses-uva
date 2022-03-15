@@ -272,8 +272,8 @@ def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, rem
         raster_df['idx'] = admin_raster_arr.ravel()
     else:
         num_periods = (year_list[-1] - year_list[0] + 1) * 12
-        raster_df[data] = dask_array.from_array(raster_arr.repeat(num_periods))
-        raster_df['idx'] = dask_array.from_array(admin_raster_arr.ravel().repeat(num_periods))
+        raster_df[data] = raster_arr.repeat(num_periods)
+        raster_df['idx'] = admin_raster_arr.ravel().repeat(num_periods)
     nan_values = [np.inf, -np.inf]
     if remove_na:
         nan_values.append(np.nan)
@@ -353,10 +353,9 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         print('Waiting for dask workers...')
         dask_client.wait_for_workers(1)
         admin_gdf = input_gdf.drop(columns=['geometry'])
-        admin_raster_arr = read_raster_as_arr(admin_raster, get_file=False)
-        dask_admin_raster_arr = dask_array.from_array(deepcopy(admin_raster_arr))
+        admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
         compute(
-            delayed(generate_raster_df)(gee_file, dask_admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
+            delayed(generate_raster_df)(gee_file, admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
             for gee_file in gee_file_list
         )
         dask_client.close()
