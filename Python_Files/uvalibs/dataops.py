@@ -339,7 +339,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
                     pattern='{}*.tif'.format(data)
                 )
         print('Creating CSV...')
-        gee_file_list = sorted(glob(reproj_dir + '*.tif') + [admin_raster])
+        gee_file_list = sorted(glob(reproj_dir + '*.tif'))
         dask_cluster = get_dask_cluster(use_hpc)
         if use_hpc:
             dask_cluster.adapt(
