@@ -18,7 +18,7 @@
 # --gdal-path /usr/bin/gdal/ \
 # --skip-download True \
 # --remove-na False \
-# --use-hpc True \
+# --use-hpc False \
 # --num-chunks 100
 
 # Execute uva_roses.py (change the paths and flags accordingly) on Windows powershell
@@ -33,7 +33,7 @@
 # --gdal-path C:/OSGeo4W64/ `
 # --skip-download True `
 # --remove-na False `
-# --use-hpc True `
+# --use-hpc False `
 # --num-chunks 100
 
 # ------------------------------------------------- Main code begins --------------------------------------------------

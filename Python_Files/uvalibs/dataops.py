@@ -242,16 +242,13 @@ def get_dask_cluster(use_hpc):
     return cluster
 
 
-def generate_raster_df(raster_file, admin_raster_arr, output_dir, remove_na=False, year_list=range(2012, 2013),
-                       static_rasters=('NASADEM',)):
+def generate_raster_df(raster_file, admin_raster_arr, output_dir, remove_na=False):
     """
     Generate CSV file from a raster
     :param raster_file: Input raster file
     :param admin_raster_arr: Administrative boundary raster array
     :param output_dir: Output directory
     :param remove_na: Set True to remove NaN values
-    :param static_rasters: Process these static rasters separately
-    :param year_list: List of years
     :return: None
     """
 
@@ -263,20 +260,16 @@ def generate_raster_df(raster_file, admin_raster_arr, output_dir, remove_na=Fals
     year = int(raster_file[sep_pos + 3: sep_pos + 7])
     month = int(month_str)
     raster_arr = raster_arr.ravel()
-    if data not in static_rasters:
-        raster_df[data] = raster_arr
-        raster_df['YEAR'] = dask_array.array([year] * raster_arr.size)
-        raster_df['MONTH'] = dask_array.array([month] * raster_arr.size)
-        raster_df['idx'] = admin_raster_arr.ravel()
-    else:
-        num_periods = (year_list[-1] - year_list[0] + 1) * 12
-        raster_df[data] = raster_arr.repeat(num_periods)
-        raster_df['idx'] = admin_raster_arr.ravel().repeat(num_periods)
+    raster_df[data] = raster_arr
+    raster_df['YEAR'] = dask_array.array([year] * raster_arr.size)
+    raster_df['MONTH'] = dask_array.array([month] * raster_arr.size)
+    raster_df['idx'] = admin_raster_arr.ravel()
     raster_df = raster_df[~np.isnan(raster_df['idx'])]
     nan_values = [np.inf, -np.inf]
     if remove_na:
         nan_values.append(np.nan)
     raster_df = raster_df[~raster_df.isin(nan_values).any(1)]
+    raster_df['idx'] = raster_df['idx'].astype(int)
     raster_df = reindex_df(raster_df, ordering=True)
     raster_csv = output_dir + '{}_{}{}.csv'.format(data, month_str, year)
     raster_df.to_csv(raster_csv, index=False)
@@ -369,7 +362,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
         for gee_files in gee_file_chunks:
             compute(
-                delayed(generate_raster_df)(gee_file, admin_raster_arr, csv_dir, remove_na, year_list)
+                delayed(generate_raster_df)(gee_file, admin_raster_arr, csv_dir, remove_na)
                 for gee_file in gee_files
             )
         dask_client.close()
