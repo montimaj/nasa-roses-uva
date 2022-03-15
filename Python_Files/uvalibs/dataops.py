@@ -242,13 +242,12 @@ def get_dask_cluster(use_hpc):
     return cluster
 
 
-def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, remove_na=False,
-                       year_list=range(2012, 2013), static_rasters=('NASADEM',)):
+def generate_raster_df(raster_file, admin_raster_arr, output_dir, remove_na=False, year_list=range(2012, 2013),
+                       static_rasters=('NASADEM',)):
     """
     Generate CSV file from a raster
     :param raster_file: Input raster file
     :param admin_raster_arr: Administrative boundary raster array
-    :param admin_gdf: Administrative boundary gdf used for merging
     :param output_dir: Output directory
     :param remove_na: Set True to remove NaN values
     :param static_rasters: Process these static rasters separately
@@ -278,7 +277,6 @@ def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, rem
         nan_values.append(np.nan)
     raster_df = raster_df[~raster_df.isin(nan_values).any(1)]
     raster_df = raster_df[~np.isnan(raster_df['idx'])]
-    raster_df = raster_df.merge(admin_gdf, on='idx', how='inner')
     raster_df = reindex_df(raster_df, ordering=True)
     raster_csv = output_dir + '{}_{}{}.csv'.format(data, month_str, year)
     raster_df.to_csv(raster_csv, index=False)
@@ -367,10 +365,11 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         print('Waiting for dask workers...')
         dask_client.wait_for_workers(1)
         admin_gdf = input_gdf.drop(columns=['geometry'])
+        admin_gdf.to_csv(output_dir + 'Admin_Boundary.csv', index=False)
         admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
         for gee_files in gee_file_chunks:
             compute(
-                delayed(generate_raster_df)(gee_file, admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
+                delayed(generate_raster_df)(gee_file, admin_raster_arr, csv_dir, remove_na, year_list)
                 for gee_file in gee_files
             )
         dask_client.close()
