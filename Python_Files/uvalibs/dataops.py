@@ -9,7 +9,6 @@ import numpy as np
 import os
 import urllib.request
 import dask.array as dask_array
-from copy import deepcopy
 from glob import glob
 from dask import delayed, compute
 from dask_jobqueue import SLURMCluster
