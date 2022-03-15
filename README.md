@@ -52,7 +52,7 @@ python uva_roses.py `
 
 ## Usage Notes
 
-Once the data sets are downloaded, the program reprojects them based on the administrative boundary shapefile 
+Once the data sets are downloaded over Nigeria, the program reprojects them based on the administrative boundary shapefile 
 (converted to a raster in the pipeline). All the rasters are in 1 km x 1 km grid (0.09 deg x 0.09 deg, EPSG:4326).
 The CSV files are created individually for each raster in a Dask parallel processing pipeline. In order to get the 
 county index associated with each pixel, the raster CSV files have to be inner-joined with the Administration Boundary CSV
