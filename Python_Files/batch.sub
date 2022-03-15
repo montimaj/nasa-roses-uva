@@ -19,4 +19,5 @@ python uva_roses.py \
 --gdal-path /home/smxnv/anaconda3/envs/HydroEnv/bin/ \
 --skip-download True \
 --remove-na False \
---use-hpc True
+--use-hpc True \
+--num-chunks 100

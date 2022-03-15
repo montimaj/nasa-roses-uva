@@ -17,7 +17,8 @@
 # --gdal-path /usr/bin/gdal/ \
 # --skip-download True \
 # --remove-na False \
-# --use-hpc True
+# --use-hpc True \
+# --num-chunks 100
 
 # Execute map_ml.py (change the paths and flags accordingly) on Windows powershell
 # python uva_roses.py `
@@ -31,7 +32,8 @@
 # --gdal-path C:/OSGeo4W64/ `
 # --skip-download True `
 # --remove-na False `
-# --use-hpc True
+# --use-hpc True `
+# --num-chunks 100
 
 # ------------------------------------------------- Main code begins --------------------------------------------------
 
@@ -60,6 +62,7 @@ def run_map_ml(args):
     gdal_path: GDAL path
     remove_na: Set True to remove NA values from the final CSV
     use_hpc: Set False to run on local machine
+    num_chunks: Number of chunks in which the CSVs are generated
     ___________________________________________________________________________________________________________________
     :return: None
     """
@@ -75,7 +78,8 @@ def run_map_ml(args):
         gdal_path=args.gdal_path,
         remove_na=args.remove_na,
         skip_download=args.skip_download,
-        use_hpc=args.use_hpc
+        use_hpc=args.use_hpc,
+        num_chunks=args.num_chunks
     )
 
 
@@ -97,5 +101,6 @@ if __name__ == '__main__':
     parser.add_argument('--remove-na', type=boolean_string, default=False,
                         help='Set True to remove NA values from the final CSV')
     parser.add_argument('--use-hpc', type=boolean_string, default=True, help='Set False to run on local machine')
+    parser.add_argument('--num-chunks', type=int, default=50, help='Number of chunks in which the CSVs are generated')
     map_args = parser.parse_args()
     run_map_ml(map_args)

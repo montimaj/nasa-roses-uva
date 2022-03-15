@@ -284,9 +284,22 @@ def generate_raster_df(raster_file, admin_raster_arr, admin_gdf, output_dir, rem
     raster_df.to_csv(raster_csv, index=False)
 
 
+def generate_chunks(input_list, num_chunks):
+    """
+    Partition a list into equally sized chunks
+    :param input_list: List
+    :param num_chunks: Number of chunks
+    :return: Generator object
+    """
+
+    num_chunks = max(1, num_chunks)
+    for idx in range(0, len(input_list), num_chunks):
+        yield input_list[idx: idx + num_chunks]
+
+
 def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_start_year=2012, data_end_year=2021,
                  target_res=1000, gdal_path='/usr/bin', remove_na=False, already_prepared=False, skip_download=False,
-                 use_hpc=True):
+                 use_hpc=True, num_chunks=50):
     """
     Prepare data for a region of interest
     :param input_shp: Input shapefile of the country containing administrative boundaries
@@ -301,6 +314,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     :param already_prepared: Set True if subset csv already exists
     :param skip_download: Set True to load existing GEE data
     :param use_hpc: Set False to use local machine
+    :param num_chunks: Number of chunks in which the CSVs are generated
     :return: Name of the directory containing the raster CSVs
     """
 
@@ -339,6 +353,7 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
                 )
         print('Creating CSV...')
         gee_file_list = sorted(glob(reproj_dir + '*.tif'))
+        gee_file_chunks = generate_chunks(gee_file_list, num_chunks)
         dask_cluster = get_dask_cluster(use_hpc)
         if use_hpc:
             dask_cluster.adapt(
@@ -351,12 +366,13 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
         dask_client = Client(dask_cluster)
         print('Waiting for dask workers...')
         dask_client.wait_for_workers(1)
-        admin_gdf = input_gdf.drop(columns=['geometry'])
-        admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
-        compute(
-            delayed(generate_raster_df)(gee_file, admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
-            for gee_file in gee_file_list
-        )
+        for gee_files in gee_file_chunks:
+            admin_gdf = input_gdf.drop(columns=['geometry'])
+            admin_raster_arr = dask_array.from_array(read_raster_as_arr(admin_raster, get_file=False))
+            compute(
+                delayed(generate_raster_df)(gee_file, admin_raster_arr, admin_gdf, csv_dir, remove_na, year_list)
+                for gee_file in gee_files
+            )
         dask_client.close()
     return csv_dir
 
