@@ -381,6 +381,10 @@ def generate_agg_csv(data, input_csv_dir, output_dir, admin_df):
     raster_csv_list = sorted(glob(input_csv_dir + '{}*.csv'.format(data)))
     raster_df = pd.DataFrame()
     for raster_csv in raster_csv_list:
+        sep_pos = raster_csv.rfind('_')
+        year = int(raster_csv[sep_pos + 3: sep_pos + 7])
+        if data == 'DMSP_VIIRS' and year < 2014:
+            continue
         raster_df = raster_df.append(pd.read_csv(raster_csv))
     agg_stats = ['mean', 'median', 'min', 'max']
     raster_df = raster_df.groupby(['idx', 'YEAR', 'MONTH']).agg({data: agg_stats})
