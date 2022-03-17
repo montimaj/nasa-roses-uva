@@ -20,4 +20,5 @@ python uva_roses.py \
 --skip-download True \
 --remove-na False \
 --use-hpc True \
---num-chunks 100
+--num-chunks 100 \
+--agg-data True

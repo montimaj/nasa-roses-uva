@@ -19,7 +19,8 @@
 # --skip-download True \
 # --remove-na False \
 # --use-hpc False \
-# --num-chunks 100
+# --num-chunks 100 \
+# --agg-data True
 
 # Execute uva_roses.py (change the paths and flags accordingly) on Windows powershell
 # python uva_roses.py `
@@ -34,13 +35,14 @@
 # --skip-download True `
 # --remove-na False `
 # --use-hpc False `
-# --num-chunks 100
+# --num-chunks 100 `
+# --agg-data True
 
 # ------------------------------------------------- Main code begins --------------------------------------------------
 
 
 import argparse
-from uvalibs.dataops import prepare_data
+from uvalibs.dataops import prepare_data, aggregate_csv_data
 from uvalibs.sysops import boolean_string
 
 
@@ -64,11 +66,12 @@ def run_map_ml(args):
     remove_na: Set True to remove NA values from the final CSV
     use_hpc: Set False to run on local machine
     num_chunks: Number of chunks in which the CSVs are generated
+    agg_data: Set True to Generate monthly aggregates for each county to reduce the CSV data
     ___________________________________________________________________________________________________________________
     :return: None
     """
 
-    prepare_data(
+    csv_dir = prepare_data(
         args.input_shp,
         args.output_dir,
         data_list=args.data_list,
@@ -82,6 +85,13 @@ def run_map_ml(args):
         use_hpc=args.use_hpc,
         num_chunks=args.num_chunks
     )
+
+    if args.agg_data:
+        aggregate_csv_data(
+            args.data_list,
+            csv_dir,
+            args.output_dir
+        )
 
 
 if __name__ == '__main__':
@@ -103,5 +113,7 @@ if __name__ == '__main__':
                         help='Set True to remove NA values from the final CSV')
     parser.add_argument('--use-hpc', type=boolean_string, default=True, help='Set False to run on local machine')
     parser.add_argument('--num-chunks', type=int, default=50, help='Number of chunks in which the CSVs are generated')
+    parser.add_argument('--agg-data', type=boolean_string, default=True,
+                        help='Set True to Generate monthly aggregates for each county to reduce the CSV data')
     map_args = parser.parse_args()
     run_map_ml(map_args)

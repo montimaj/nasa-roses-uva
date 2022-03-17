@@ -368,6 +368,49 @@ def prepare_data(input_shp, output_dir, data_list=('MODIS_ET', 'GPM'), data_star
     return csv_dir
 
 
+def generate_agg_csv(data, input_csv_dir, output_dir, admin_df):
+    """
+    Generate aggregated CSV data
+    :param data: Name of the data set
+    :param input_csv_dir: Input CSV directory
+    :param output_dir: Output directory
+    :param admin_df: Administration boundary data frame
+    :return: None
+    """
+
+    raster_csv_list = sorted(glob(input_csv_dir + '{}*.csv'.format(data)))
+    raster_df = pd.DataFrame()
+    for raster_csv in raster_csv_list:
+        raster_df = raster_df.append(pd.read_csv(raster_csv))
+    agg_stats = ['mean', 'median', 'min', 'max']
+    raster_df = raster_df.groupby(['idx', 'YEAR', 'MONTH']).agg({data: agg_stats})
+    raster_df.columns = [data + '_{}'.format(agg_stat) for agg_stat in agg_stats]
+    raster_df = raster_df.reset_index()
+    raster_df = raster_df.merge(admin_df, on='idx', how='inner')
+    agg_csv = output_dir + data + '.csv'
+    raster_df.to_csv(agg_csv, index=False)
+
+
+def aggregate_csv_data(data_list, input_csv_dir, output_dir):
+    """
+    Aggregate CSV data sets
+    :param data_list: List of data sets
+    :param input_csv_dir: CSV directory obtained from prepare_data(...)
+    :param output_dir: Output directory,
+    :return: Aggregated CSV directory
+    """
+
+    agg_dir = make_proper_dir_name(input_csv_dir + 'Agg_CSV')
+    makedirs([agg_dir])
+    if 'All' in data_list:
+        data_list = get_gee_dict(get_key_list=True)
+    admin_df = pd.read_csv(output_dir + 'Admin_Boundary.csv')
+    for data in data_list:
+        print('Aggregating', data, '...')
+        generate_agg_csv(data, input_csv_dir, agg_dir, admin_df)
+    return agg_dir
+
+
 def reindex_df(df, column_names=None, ordering=False):
     """
     Reindex dataframe columns
