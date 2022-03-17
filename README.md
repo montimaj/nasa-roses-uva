@@ -30,7 +30,8 @@ python uva_roses.py \
 --skip-download True \
 --remove-na False \
 --use-hpc False \
---num-chunks 100
+--num-chunks 100 \
+--agg-data True
 ```
 
 ### <i>Execute uva_roses.py (change the paths and flags accordingly) on Windows powershell</i>
@@ -47,7 +48,8 @@ python uva_roses.py `
 --skip-download True `
 --remove-na False `
 --use-hpc False `
---num-chunks 100
+--num-chunks 100 `
+--agg-data True
 ```
 
 ## Usage Notes
