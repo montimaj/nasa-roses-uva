@@ -1,13 +1,18 @@
 # NASA ROSES UVA Proposal Codes 
 Codes for remote sensing data acquisition and preprocessing
 
-Author: Sayantan Majumdar
+Author: [Sayantan Majumdar](https://scholar.google.com/citations?user=iYlO-VcAAAAJ&hl=en)
 
-Email: smxnv@mst.edu
+PI: [Molly Lipscomb](https://scholar.google.com/citations?user=xO5iYzMAAAAJ&hl=en&oi=ao)
 
-PI: Molly Lipscomb, Venkataraman Lakshmi
-
-Other member(s): Brendan Novak
+Co-PIs: [Adam Storeygard](https://scholar.google.com/citations?user=eKZWBiAAAAAJ&hl=en&oi=ao), 
+[Denis Nekipelov](https://scholar.google.com/citations?user=QB_fwL8AAAAJ&hl=en&oi=ao), 
+[Jay Shimshack](https://scholar.google.com/citations?user=Z1sqTysAAAAJ&hl=en&oi=ao), 
+[Venkataraman Lakshmi](https://scholar.google.com/citations?hl=en&user=vbNdSy0AAAAJ), 
+[Thomas Piechota](https://scholar.google.com/citations?hl=en&user=0u7UrUQAAAAJ), 
+[Julianne Quinn](https://scholar.google.com/citations?hl=en&user=4W9ZUSQAAAAJ), 
+[Ryan Smith](https://scholar.google.com/citations?user=nzSrr8oAAAAJ&hl=en), 
+[Brendan Novak](https://www.linkedin.com/in/brendannovak)
 
 ## Running nasa-roses-uva
 
